@@ -47,8 +47,8 @@ impl PollMap<Poll> for Treemap {
         } else {
             return self
                 .branches
-                .par_iter()
-                .map(|mut t| <Treemap as PollMap<Poll>>::poll_map(t.as_mut(), 0.0))
+                .par_iter_mut()
+                .map(|t| <Treemap as PollMap<Poll>>::poll_map(t, 0.0))
                 .flatten()
                 .collect::<Vec<_>>();
         }

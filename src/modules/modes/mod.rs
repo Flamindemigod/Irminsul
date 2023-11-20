@@ -13,6 +13,6 @@ pub trait Poll {
     fn poll(&self, files: &mut Vec<Box<Treemap>>) -> Option<Vec<PathBuf>>;
 }
 
-trait PollMap<T> { 
+trait PollMap<T> {
     fn poll_map(&mut self, branch_depth_ratio: f32) -> Vec<&mut Self>;
- }
+}
