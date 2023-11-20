@@ -1,9 +1,11 @@
+use super::{
+    modes::{mix::Mix, notify::Notify, poll::Poll},
+    node::Node,
+};
 use serde::{Deserialize, Serialize};
 
-use super::modes::{poll::Poll, notify::Notify, mix::Mix};
-
 #[derive(Serialize, Deserialize, Clone, Debug)]
-enum Mode {
+pub enum Mode {
     #[cfg(feature = "poll")]
     Poll(Poll),
     #[cfg(feature = "notify")]
@@ -33,4 +35,6 @@ impl Default for Mode {
 struct Config {
     verbosity: usize,
     mode: Mode,
+    #[serde(flatten)]
+    nodes: Vec<Box<Node>>,
 }

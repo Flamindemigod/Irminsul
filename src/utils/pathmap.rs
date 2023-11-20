@@ -1,14 +1,18 @@
 use normpath::PathExt;
 use rayon::prelude::*;
 use std::{
-    collections::{HashSet, VecDeque},
+    collections::{HashSet, VecDeque, BTreeSet},
     ffi::OsStr,
     path::PathBuf,
 };
 
-use super::treemap::Treemap;
+use crate::modules::treemap::Treemap;
 
-fn path_map_inner(mut files: Vec<VecDeque<&OsStr>>, prev_node: PathBuf) -> Vec<Box<Treemap>> {
+
+fn path_map_inner(
+    mut files: Vec<VecDeque<&OsStr>>,
+    prev_path: PathBuf>,
+) -> BTreeSet<Box<Treemap>> {
     let path_spilt: Vec<_> = files
         .par_iter_mut()
         .filter(|f| !f.is_empty())
@@ -23,17 +27,16 @@ fn path_map_inner(mut files: Vec<VecDeque<&OsStr>>, prev_node: PathBuf) -> Vec<B
                 .filter(|path| path.0.eq(root))
                 .map(|path| path.1.clone())
                 .collect();
-            let mut branches: Vec<Box<Treemap>> =
-                path_map_inner(paths, prev_node.join(root.clone()));
+            let mut branches: BTreeSet<Box<Treemap>> = path_map_inner(paths);
             let mut node = root.clone();
             let mut depth = 0;
             if branches.len() == 1 {
-                let branch = branches.pop().unwrap();
+                let branch = branches.first().unwrap();
                 node = node.join(branch.node);
                 branches = branch.branches;
                 depth = branch.depth + 1;
             }
-            Box::new(Treemap::new(node, depth, branches, prev_node.clone()))
+            Box::new(Treemap::new(node, depth, branches, pre));
         })
         .collect();
     treemaps
@@ -41,7 +44,13 @@ fn path_map_inner(mut files: Vec<VecDeque<&OsStr>>, prev_node: PathBuf) -> Vec<B
 pub fn path_map(files: Vec<PathBuf>) -> Vec<Box<Treemap>> {
     let bind: Vec<_> = files
         .par_iter()
-        .map(|f| f.normalize().unwrap().as_path().to_path_buf())
+        .filter_map(|f| {
+            if f.exists() {
+                Some(f.normalize().unwrap().as_path().to_path_buf())
+            } else {
+                None
+            }
+        })
         .collect();
     let file_vec: Vec<VecDeque<_>> = bind
         .par_iter()

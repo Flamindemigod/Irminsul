@@ -1,14 +1,18 @@
-use super::get_last_modified::get_last_modified;
+use crate::utils::get_last_modified::get_last_modified;
 use log::trace;
-use std::{fmt::Display, hash::Hash, path::PathBuf, time::SystemTime};
+use std::{collections::BTreeSet, fmt::Display, hash::Hash, path::PathBuf, time::SystemTime};
 
-#[derive(Clone, Debug, PartialOrd, Eq, Ord, Hash)]
+use super::node::Node;
+
+#[derive(Clone, Debug, PartialOrd, PartialEq, Eq, Ord, Hash)]
 pub struct Treemap {
     pub full_path: PathBuf,
     pub node: PathBuf,
     pub depth: usize,
-    pub branches: Vec<Box<Treemap>>,
-    last_update: Box<SystemTime>,
+    pub branches: BTreeSet<Box<Treemap>>,
+    prev_node: Option<Box<Treemap>>,
+    last_update: Option<Box<SystemTime>>,
+    conf_node: BTreeSet<Box<Node>>,
 }
 
 impl Display for Treemap {
@@ -22,47 +26,50 @@ impl Display for Treemap {
     }
 }
 
-impl PartialEq for Treemap {
-    fn eq(&self, other: &Self) -> bool {
-        let mut a: Vec<_> = self.branches.to_owned();
-        let mut b: Vec<_> = other.branches.to_owned();
-        a.sort();
-        b.sort();
-        if a.eq(&b) && self.node.eq(&other.node) && self.depth.eq(&other.depth) && self.full_path.eq(&other.full_path){
-            return true
-        }
-        else {
-            return false
-        }
-    }
-}
 
 
 impl Treemap {
     pub fn new(
         node: PathBuf,
         depth: usize,
-        branches: Vec<Box<Treemap>>,
-        prev_node: PathBuf,
+        branches: BTreeSet<Box<Treemap>>,
+        prev_path: PathBuf,
     ) -> Self {
-        let full_path = prev_node.join(&node);
-        let last_update =
-            get_last_modified(full_path.clone()).expect("Failed to get Last Update Time");
         Self {
             node,
             depth,
             branches,
-            last_update: Box::new(last_update),
-            full_path,
+            last_update: None,
+            full_path: prev_path.join(&node),
+            prev_node: None,
+            conf_node: BTreeSet::new(),
         }
     }
 
+    pub fn link_conf_node(&mut self, conf_node: Box<Node>) -> &mut Self {
+        self.conf_node.insert(conf_node);
+        self
+    }
+
+    pub fn link_prev_node(&mut self, prev_node: Option<Box<Treemap>>) -> &mut Self {
+        self.prev_node = prev_node;
+        self
+    }
+
     pub fn poll_point(&mut self) -> bool {
-        let t_time =
-            get_last_modified(self.full_path.clone()).expect("Failed to get Last Update Time");
-        if self.last_update.lt(&Box::new(t_time)) {
-            *self.last_update = t_time;
-            return true;
+        if self.full_path.exists() {
+            let t_time = Some(Box::new(
+                get_last_modified(self.full_path.clone()).expect("Failed to get Last Update Time"),
+            ));
+            if self.last_update.lt(&t_time) {
+                self.last_update = t_time;
+                return true;
+            }
+        } else {
+            if self.last_update.ne(&Box::new(None)) {
+                self.last_update = None;
+                return true;
+            }
         }
         return false;
     }

@@ -1,9 +1,10 @@
-use crate::utils::treemap::Treemap;
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::{path::PathBuf, time::Duration};
 
-use super::Poll;
+use crate::modules::treemap::Treemap;
+
+use super::{Poll, PollMap};
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Mix {
@@ -19,13 +20,12 @@ impl Default for Mix {
         }
     }
 }
-
 impl Poll for Mix {
     fn poll(&self, path_map: &mut Vec<Box<Treemap>>) -> Option<Vec<PathBuf>> {
         let res: Vec<PathBuf> = path_map
             .par_iter_mut()
             .map(|p| {
-                p.poll_map(self.branch_depth_ratio)
+                <Treemap as PollMap<Mix>>::poll_map(p, self.branch_depth_ratio)
                     .par_iter_mut()
                     .map(|point| point.poll_branches())
                     .flatten()
@@ -41,7 +41,7 @@ impl Poll for Mix {
     }
 }
 
-impl Treemap {
+impl PollMap<Mix> for Treemap {
     fn poll_map(&mut self, branch_depth_ratio: f32) -> Vec<&mut Self> {
         if self.branches.is_empty() {
             return vec![self];
@@ -51,8 +51,10 @@ impl Treemap {
             } else {
                 return self
                     .branches
-                    .par_iter_mut()
-                    .map(|t| t.poll_map(branch_depth_ratio))
+                    .par_iter()
+                    .map(|mut t| {
+                        <Treemap as PollMap<Mix>>::poll_map(t.as_mut(), branch_depth_ratio)
+                    })
                     .flatten()
                     .collect::<Vec<_>>();
             }

@@ -6,7 +6,7 @@ pub mod modules;
 pub mod utils;
 
 fn main() {
-    let mut map =path_map(
+    let mut map = path_map(
         vec![
             r"E:\Projects\watch-rs\src\modules\config.rs",
             r"E:\Projects\watch-rs\src\modules\modes\poll.rs",
@@ -16,6 +16,7 @@ fn main() {
             r".\src\main.rs",
             r".\src\modules\mod.rs",
             r".\Readme.md",
+            r"test",
             r".\src\modules\modes\mix.rs",
             r"E:\Steam\steamapps\common\Blender",
         ]
