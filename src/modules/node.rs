@@ -5,41 +5,102 @@ use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::{collections::BTreeSet, path::PathBuf};
 
+use crate::utils::get_common_path;
+
 use super::treemap::Treemap;
 
 #[derive(Serialize, Deserialize, Default, Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash)]
 pub struct Node {
-    path_pattern: Box<str>,
-    exec: String,
+    root: PathBuf,
+    path_pattern: Option<Box<str>>,
+    exec: Option<String>,
 }
 
 impl Node {
-    fn build_paths(self) -> Vec<PathBuf> {
-        match glob(self.path_pattern.as_ref()) {
-            Err(err) => {
-                error!("Failed to read Glob Pattern: {err}");
-                Vec::new()
+    #[cfg(target_family = "unix")]
+    fn build_paths(&self) -> Vec<PathBuf> {
+        if self.path_pattern.is_some() {
+            match glob(
+                self.root
+                    .join(
+                        self.path_pattern
+                            .clone()
+                            .expect("Path Pattern is Missing")
+                            .as_ref(),
+                    )
+                    .to_str()
+                    .expect("Path Pattern And/Or Root Does not Contain any Chars"),
+            ) {
+                Err(err) => {
+                    error!("Failed to read Glob Pattern: {err}");
+                    Vec::new()
+                }
+                Ok(paths) => {
+                    return paths
+                        .filter_map(|path| {
+                            match path
+                                .map_err(|err| error!("Glob Pattern failed to resolve path: {err}"))
+                            {
+                                Err(_) => None,
+                                Ok(p) => Some(
+                                    p.normalize()
+                                        .expect("Failed to Normalize Path")
+                                        .into_path_buf(),
+                                ),
+                            }
+                        })
+                        .collect()
+                }
             }
-            Ok(paths) => paths
-                .filter_map(|path| {
-                    match path.map_err(|err| error!("Glob Pattern failed to resolve path: {err}")) {
-                        Err(_) => None,
-                        Ok(p) => Some(
-                            p.normalize()
-                                .expect("Failed to Normalize Path")
-                                .into_path_buf(),
-                        ),
-                    }
-                })
-                .collect(),
+        } else {
+            vec![self.root.clone()]
         }
     }
-    fn build_treemap(self) -> (Box<Self>, Treemap) {
+
+    #[cfg(target_family = "windows")]
+    fn build_paths(&self) -> Vec<PathBuf> {
+        if self.path_pattern.is_some() {
+            match glob(
+                self.root
+                    .join(
+                        self.path_pattern
+                            .clone()
+                            .expect("Path Pattern is Missing")
+                            .as_ref(),
+                    )
+                    .to_str()
+                    .expect("Path Pattern And/Or Root Does not Contain any Chars"),
+            ) {
+                Err(err) => {
+                    error!("Failed to read Glob Pattern: {err}");
+                    Vec::new()
+                }
+                Ok(paths) => {
+                    return paths
+                        .filter_map(|path| {
+                            match path
+                                .map_err(|err| error!("Glob Pattern failed to resolve path: {err}"))
+                            {
+                                Err(_) => None,
+                                Ok(p) => Some(
+                                    PathBuf::from("WinRoot").join(
+                                        p.normalize()
+                                            .expect("Failed to Normalize Path")
+                                            .into_path_buf(),
+                                    ),
+                                ),
+                            }
+                        })
+                        .collect()
+                }
+            }
+        } else {
+            vec![PathBuf::from("WinRoot").join(self.root.clone())]
+        }
+    }
+
+    fn build_treemap(&self) -> Treemap {
         let paths = self.build_paths();
-        paths.par_iter().map(|p| {});
-        (
-            Box::new(self),
-            Treemap::new(PathBuf::new(), 0, BTreeSet::new(), PathBuf::new()),
-        )
+        Treemap::new(PathBuf::new(), 0, BTreeSet::new(), PathBuf::new())
     }
 }

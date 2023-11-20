@@ -1,5 +1,5 @@
 [package]
-name = "watch-rs"
+name = "irminsul"
 version = "0.1.0"
 edition = "2021"
 authors = ["Flamindemigod"]

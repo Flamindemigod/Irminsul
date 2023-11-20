@@ -277,6 +277,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "irminsul"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "assert_unordered",
+ "clap",
+ "glob",
+ "log",
+ "normpath",
+ "rayon",
+ "serde",
+ "serde_json",
+ "stderrlog",
+ "subprocess",
+]
+
+[[package]]
 name = "itoa"
 version = "1.0.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -541,23 +558,6 @@ name = "wasm-bindgen-shared"
 version = "0.2.87"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ca6ad05a4870b2bf5fe995117d3728437bd27d7cd5f06f13c17443ef369775a1"
-
-[[package]]
-name = "watch-rs"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "assert_unordered",
- "clap",
- "glob",
- "log",
- "normpath",
- "rayon",
- "serde",
- "serde_json",
- "stderrlog",
- "subprocess",
-]
 
 [[package]]
 name = "winapi"

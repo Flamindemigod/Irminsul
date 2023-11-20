@@ -1,6 +1,14 @@
 use crate::utils::get_last_modified::get_last_modified;
+use anyhow::{anyhow, Result};
 use log::trace;
-use std::{collections::BTreeSet, fmt::Display, hash::Hash, path::PathBuf, time::SystemTime};
+use rayon::iter::*;
+use std::{
+    collections::{BTreeSet, HashSet},
+    fmt::Display,
+    hash::Hash,
+    path::PathBuf,
+    time::SystemTime,
+};
 
 use super::node::Node;
 
@@ -26,8 +34,6 @@ impl Display for Treemap {
     }
 }
 
-
-
 impl Treemap {
     pub fn new(
         node: PathBuf,
@@ -35,15 +41,43 @@ impl Treemap {
         branches: BTreeSet<Box<Treemap>>,
         prev_path: PathBuf,
     ) -> Self {
-        Self {
-            node,
+        let full_path;
+        if cfg!(windows) && node == PathBuf::from("WinRoot") {
+            full_path = prev_path;
+        } else {
+            full_path = prev_path.join(node.clone())
+        }
+        return Self {
+            node: node,
             depth,
             branches,
             last_update: None,
-            full_path: prev_path.join(&node),
+            full_path: full_path,
             prev_node: None,
             conf_node: BTreeSet::new(),
+        };
+    }
+
+    pub fn merge(&mut self, other: &mut Self) {
+        let mut branches = BTreeSet::new();
+        '_outer: loop {
+            if self.branches.is_empty() {
+                break;
+            }
+            let branch = self.branches.pop_first().unwrap();
+            for mut b_branch in other.branches.clone() {
+                if branch.full_path == b_branch.full_path {
+                    let mut binding = branch.clone();
+                    binding.merge(&mut b_branch);
+                    other.branches.remove(&b_branch);
+                    branches.insert(binding);
+                    continue '_outer;
+                }
+            }
+            branches.insert(branch);
         }
+        branches.append(&mut other.branches);
+        self.branches = branches;
     }
 
     pub fn link_conf_node(&mut self, conf_node: Box<Node>) -> &mut Self {
