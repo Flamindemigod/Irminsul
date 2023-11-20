@@ -56,7 +56,7 @@ impl PollMap<Mix> for Treemap {
 
 #[cfg(test)]
 mod tests {
-    use pretty_assertions::{assert_eq, assert_ne};
+    use pretty_assertions::assert_eq;
     use serial_test::serial;
     use std::{env::temp_dir, fs, io::Write, thread::sleep, time::Duration};
 
