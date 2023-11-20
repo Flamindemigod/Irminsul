@@ -2,9 +2,8 @@ use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use std::{path::PathBuf, time::Duration};
 
-use crate::modules::treemap::Treemap;
-
 use super::{Poll, PollMap};
+use crate::modules::treemap::Treemap;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Mix {
@@ -21,18 +20,13 @@ impl Default for Mix {
     }
 }
 impl Poll for Mix {
-    fn poll(&self, path_map: &mut Vec<Box<Treemap>>) -> Option<Vec<PathBuf>> {
-        let res: Vec<PathBuf> = path_map
-            .par_iter_mut()
-            .map(|p| {
-                <Treemap as PollMap<Mix>>::poll_map(p, self.branch_depth_ratio)
-                    .par_iter_mut()
-                    .map(|point| point.poll_branches())
-                    .flatten()
-                    .collect::<Vec<PathBuf>>()
-            })
-            .flatten()
-            .collect();
+    fn poll(&self, path_map: &mut Box<Treemap>) -> Option<Vec<PathBuf>> {
+        let res: Vec<PathBuf> =
+            <Treemap as PollMap<Mix>>::poll_map(path_map, self.branch_depth_ratio)
+                .par_iter_mut()
+                .map(|point| point.poll_branches())
+                .flatten()
+                .collect::<Vec<PathBuf>>();
         if !res.is_empty() {
             return Some(res);
         } else {
@@ -60,93 +54,190 @@ impl PollMap<Mix> for Treemap {
     }
 }
 
-// #[cfg(test)]
-// mod tests {
-//     use crate::utils::path_map;
+#[cfg(test)]
+mod tests {
+    use pretty_assertions::{assert_eq, assert_ne};
+    use serial_test::serial;
+    use std::{env::temp_dir, fs, io::Write, thread::sleep, time::Duration};
 
-//     use super::*;
-//     use std::{env::temp_dir, fs, io::Write, thread::sleep, time::Duration};
+    use super::*;
+    use crate::modules::node::Node;
 
-//     #[test]
-//     fn test_poll_empty_input() {
-//         let mut inp = Vec::new();
-//         assert_eq!(Mix::default().poll(&mut inp), None);
-//     }
+    #[test]
+    #[serial]
+    fn test_mix_poll_no_update() {
+        let dir = temp_dir().join("mix_poll_test0");
+        let _ = fs::create_dir_all(dir.clone());
+        let mut map = Node {
+            root: dir.clone(),
+            path_pattern: None,
+            exec: None,
+        }
+        .build_treemap();
+        assert_eq!(Mix::default().poll(&mut map), None);
+        let _ = fs::remove_dir_all(dir);
+    }
 
-//     #[test]
-//     fn test_poll_1file_1pass() {
-//         let dir = temp_dir();
-//         let file_path1 = dir.join("file_mix1_poll1.txt");
-//         fs::File::create(&file_path1).unwrap();
-//         let files = vec![file_path1.clone()];
-//         let mut inp = path_map(files);
-//         let mut l = fs::File::create(&file_path1).unwrap();
-//         let _ = writeln!(l, "Test");
-//         drop(l);
-//         assert_eq!(
-//             Mix::default().poll(&mut inp),
-//             Some(vec![file_path1.clone()])
-//         );
-//         fs::remove_file(file_path1.clone()).unwrap();
-//     }
+    #[test]
+    fn test_mix_poll_1file_1pass() {
+        let dir = temp_dir().join("mix_poll_test1");
+        let _ = fs::create_dir_all(dir.clone());
+        let file_path1 = dir.join("file_mix1_poll1.txt");
+        fs::File::create(&file_path1).unwrap();
+        let mut map = Node {
+            root: dir.clone(),
+            path_pattern: Some("*".to_owned()),
+            exec: None,
+        }
+        .build_treemap();
+        sleep(Duration::from_millis(500));
 
-//     #[test]
-//     fn test_poll_2file_1pass() {
-//         let dir = temp_dir();
-//         let file_path1 = dir.join("file_mix2_poll1.txt");
-//         let file_path2 = dir.join("file_mix2_poll2.txt");
-//         fs::File::create(&file_path1).unwrap();
-//         fs::File::create(&file_path2).unwrap();
-//         let files = vec![file_path1.clone(), file_path2.clone()];
-//         let mut inp = Box::new(path_map(files));
-//         sleep(Duration::from_millis(500));
-//         let mut l = fs::File::create(&file_path1).unwrap();
-//         let _ = writeln!(l, "Test");
-//         drop(l);
-//         assert_eq!(
-//             Mix::default().poll(&mut inp),
-//             Some(vec![file_path1.clone()])
-//         );
-//         fs::remove_file(file_path1.clone()).unwrap();
-//         fs::remove_file(file_path2.clone()).unwrap();
-//     }
+        let mut l = fs::File::create(&file_path1).unwrap();
+        let _ = writeln!(l, "Test");
+        drop(l);
+        assert_eq!(Mix::default().poll(&mut map), Some(vec![file_path1]));
+        let _ = fs::remove_dir_all(dir);
+    }
 
-//     #[test]
-//     fn test_poll_2file_2pass() {
-//         let dir = temp_dir();
-//         let file_path1 = dir.join("file_mix3_poll1.txt");
-//         let file_path2 = dir.join("file_mix3_poll2.txt");
-//         fs::File::create(&file_path1).unwrap();
-//         fs::File::create(&file_path2).unwrap();
-//         let files = vec![file_path1.clone(), file_path2.clone()];
-//         let mut inp = path_map(files);
-//         sleep(Duration::from_millis(500));
-//         let mut l = fs::File::create(&file_path1).unwrap();
-//         let _ = writeln!(l, "Test");
-//         drop(l);
-//         let mut l = fs::File::create(&file_path2).unwrap();
-//         let _ = writeln!(l, "Test");
-//         drop(l);
-//         assert_unordered::assert_eq_unordered!(
-//             Mix::default().poll(&mut inp).expect("Failed Test"),
-//             vec![file_path1.clone(), file_path2.clone()]
-//         );
-//         fs::remove_file(file_path1.clone()).unwrap();
-//         fs::remove_file(file_path2.clone()).unwrap();
-//     }
+    #[test]
+    #[serial]
+    fn test_mix_poll_2file_1pass() {
+        let dir = temp_dir().join("mix_poll_test2");
+        let _ = fs::create_dir_all(dir.clone());
+        let file_path1 = dir.join("file_mix2_poll1.txt");
+        let file_path2 = dir.join("file_mix2_poll2.txt");
+        fs::File::create(&file_path1).unwrap();
+        fs::File::create(&file_path2).unwrap();
+        let mut map = Node {
+            root: dir.clone(),
+            path_pattern: Some("*".to_owned()),
+            exec: None,
+        }
+        .build_treemap();
+        sleep(Duration::from_millis(500));
+        let mut l = fs::File::create(&file_path1).unwrap();
+        let _ = writeln!(l, "Test");
+        drop(l);
+        assert_eq!(
+            Mix::default().poll(&mut map),
+            Some(vec![file_path1.clone()])
+        );
+        let _ = fs::remove_dir_all(dir);
+    }
 
-//     #[test]
-//     fn test_poll_2file_0pass() {
-//         let dir = temp_dir();
-//         let file_path1 = dir.join("file_mix4_poll1.txt");
-//         let file_path2 = dir.join("file_mix4_poll2.txt");
-//         fs::File::create(&file_path1).unwrap();
-//         fs::File::create(&file_path2).unwrap();
-//         let files = vec![file_path1.clone(), file_path2.clone()];
-//         let mut inp = path_map(files);
-//         sleep(Duration::from_millis(500));
-//         assert_eq!(Mix::default().poll(&mut inp), None);
-//         fs::remove_file(file_path1.clone()).unwrap();
-//         fs::remove_file(file_path2.clone()).unwrap();
-//     }
-// }
+    #[test]
+    #[serial]
+    fn test_mix_poll_2file_2pass() {
+        let dir = temp_dir().join("mix_poll_test3");
+        let _ = fs::create_dir_all(dir.clone());
+        let file_path1 = dir.join("file_mix3_poll1.txt");
+        let file_path2 = dir.join("file_mix3_poll2.txt");
+        fs::File::create(&file_path1).unwrap();
+        fs::File::create(&file_path2).unwrap();
+        let mut map = Node {
+            root: dir.clone(),
+            path_pattern: Some("*".to_owned()),
+            exec: None,
+        }
+        .build_treemap();
+        sleep(Duration::from_millis(500));
+        let mut l = fs::File::create(&file_path1).unwrap();
+        let _ = writeln!(l, "Test");
+        drop(l);
+
+        let mut l = fs::File::create(&file_path2).unwrap();
+        let _ = writeln!(l, "Test");
+        drop(l);
+
+        let mut res = Mix::default().poll(&mut map).unwrap();
+        let mut exp = vec![file_path1.clone(), file_path2.clone()];
+        exp.sort();
+        res.sort();
+        assert_eq!(res, exp);
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    #[serial]
+    fn test_mix_poll_2file_0pass() {
+        let dir = temp_dir().join("mix_poll_test4");
+        let _ = fs::create_dir_all(dir.clone());
+        let file_path1 = dir.join("file_mix4_poll1.txt");
+        let file_path2 = dir.join("file_mix4_poll2.txt");
+        fs::File::create(&file_path1).unwrap();
+        fs::File::create(&file_path2).unwrap();
+        let mut map = Node {
+            root: dir.clone(),
+            path_pattern: Some("*".to_owned()),
+            exec: None,
+        }
+        .build_treemap();
+
+        assert_eq!(Mix::default().poll(&mut map), None);
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    #[serial]
+    fn test_mix_poll_3file_2pass() {
+        let dir = temp_dir().join("mix_poll_test5");
+        let _ = fs::create_dir_all(dir.clone().join("inner"));
+        let file_path1 = dir.join("file_mix5_poll1.txt");
+        let file_path2 = dir.join("file_mix5_poll2.txt");
+        let file_path3 = dir.join("inner").join("file_mix5_poll2.txt");
+        fs::File::create(&file_path1).unwrap();
+        fs::File::create(&file_path2).unwrap();
+        fs::File::create(&file_path3).unwrap();
+        let mut map = Node {
+            root: dir.clone(),
+            path_pattern: Some("**/*".to_owned()),
+            exec: None,
+        }
+        .build_treemap();
+        sleep(Duration::from_millis(500));
+        let mut l = fs::File::create(&file_path1).unwrap();
+        let _ = writeln!(l, "Test");
+        drop(l);
+
+        let mut l = fs::File::create(&file_path2).unwrap();
+        let _ = writeln!(l, "Test");
+        drop(l);
+
+        let mut res = Mix::default().poll(&mut map).unwrap();
+        let mut exp = vec![file_path1.clone(), file_path2.clone()];
+        exp.sort();
+        res.sort();
+        assert_eq!(res, exp);
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    #[serial]
+    fn test_mix_poll_3file_1pass_inner() {
+        let dir = temp_dir().join("mix_poll_test6");
+        let _ = fs::create_dir_all(dir.clone().join("inner"));
+        let file_path1 = dir.join("file_mix6_poll1.txt");
+        let file_path2 = dir.join("file_mix6_poll2.txt");
+        let file_path3 = dir.join("inner").join("file_mix6_poll2.txt");
+        fs::File::create(&file_path1).unwrap();
+        fs::File::create(&file_path2).unwrap();
+        fs::File::create(&file_path3).unwrap();
+        let mut map = Node {
+            root: dir.clone(),
+            path_pattern: Some("**/*".to_owned()),
+            exec: None,
+        }
+        .build_treemap();
+        sleep(Duration::from_millis(500));
+        let mut l = fs::File::create(&file_path3).unwrap();
+        let _ = writeln!(l, "Test");
+        drop(l);
+
+        let mut res = Mix::default().poll(&mut map).unwrap();
+        let mut exp = vec![file_path3];
+        exp.sort();
+        res.sort();
+        assert_eq!(res, exp);
+        let _ = fs::remove_dir_all(dir);
+    }
+}

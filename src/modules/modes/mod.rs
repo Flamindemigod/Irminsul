@@ -10,7 +10,7 @@ pub mod notify;
 pub mod poll;
 
 pub trait Poll {
-    fn poll(&self, files: &mut Vec<Box<Treemap>>) -> Option<Vec<PathBuf>>;
+    fn poll(&self, files: &mut Box<Treemap>) -> Option<Vec<PathBuf>>;
 }
 
 trait PollMap<T> {

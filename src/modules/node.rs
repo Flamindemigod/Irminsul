@@ -7,9 +7,9 @@ use super::treemap::Treemap;
 
 #[derive(Serialize, Deserialize, Default, Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash)]
 pub struct Node {
-    root: PathBuf,
-    path_pattern: Option<String>,
-    exec: Option<String>,
+    pub root: PathBuf,
+    pub path_pattern: Option<String>,
+    pub exec: Option<String>,
 }
 
 impl Node {
@@ -81,7 +81,7 @@ impl Node {
         let node = Box::from(Treemap::new(segment.into(), 0, set, prev_segment));
         return node;
     }
-    fn build_treemap(&self) -> Box<Treemap> {
+    pub fn build_treemap(&self) -> Box<Treemap> {
         let paths = self.build_paths();
         println!("{:#?}", paths);
         let mut maps = paths
@@ -107,6 +107,7 @@ impl Node {
 mod tests {
     use log::error;
     use pretty_assertions::{assert_eq, assert_ne};
+    use serial_test::serial;
     use std::{env::temp_dir, fs};
 
     use super::*;
@@ -138,6 +139,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_conf_node_multiple_file() {
         let temp_dir = temp_dir().join("bob_ross1");
         let _ =
@@ -182,6 +184,7 @@ mod tests {
     }
 
     #[test]
+    #[serial]
     fn test_conf_node_multiple_files_one_nested_no_match() {
         let temp_dir = temp_dir().join("bob_ross2");
         let _ = fs::create_dir_all(&temp_dir.join("WIP"))

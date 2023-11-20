@@ -20,18 +20,12 @@ impl Default for Poll {
 }
 
 impl PollTrait for Poll {
-    fn poll(&self, path_map: &mut Vec<Box<Treemap>>) -> Option<Vec<std::path::PathBuf>> {
-        let res: Vec<PathBuf> = path_map
+    fn poll(&self, path_map: &mut Box<Treemap>) -> Option<Vec<std::path::PathBuf>> {
+        let res = <Treemap as PollMap<Poll>>::poll_map(path_map, 0.0)
             .par_iter_mut()
-            .map(|p| {
-                <Treemap as PollMap<Poll>>::poll_map(p, 0.0)
-                    .par_iter_mut()
-                    .map(|point| point.poll_branches())
-                    .flatten()
-                    .collect::<Vec<PathBuf>>()
-            })
+            .map(|point| point.poll_branches())
             .flatten()
-            .collect();
+            .collect::<Vec<PathBuf>>();
         if !res.is_empty() {
             return Some(res);
         } else {

@@ -76,7 +76,7 @@ impl Treemap {
         } else {
             full_path = prev_path.join(node.clone())
         }
-        return Self {
+        let mut val = Self {
             node: node,
             depth,
             branches,
@@ -84,6 +84,8 @@ impl Treemap {
             full_path: full_path,
             conf_node: Vec::new(),
         };
+        val.poll_point();
+        return val;
     }
 
     pub fn merge(&mut self, other: &mut Self) {
