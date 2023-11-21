@@ -78,12 +78,11 @@ impl Node {
             let branch = self.build_treemap_inner(path_segments, prev_segment.join(segment));
             set.push(branch);
         }
-        let node = Box::from(Treemap::new(segment.into(), 0, set, prev_segment));
+        let node = Box::from(Treemap::new(segment.into(), set, prev_segment));
         return node;
     }
     pub fn build_treemap(&self) -> Box<Treemap> {
         let paths = self.build_paths();
-        println!("{:#?}", paths);
         let mut maps = paths
             .par_iter()
             .map(|path| {
@@ -121,20 +120,18 @@ mod tests {
         let mut branch_inner = Vec::new();
         branch_inner.push(Box::from(Treemap::new(
             PathBuf::from("bob_ross"),
-            0,
             Vec::new(),
             PathBuf::from("/home"),
         )));
         let mut branch = Vec::new();
         branch.push(Box::from(Treemap::new(
             PathBuf::from("home"),
-            0,
             branch_inner,
             PathBuf::from("/"),
         )));
         assert_eq!(
             conf_node.build_treemap(),
-            Box::from(Treemap::new(PathBuf::from("/"), 0, branch, PathBuf::new()))
+            Box::from(Treemap::new(PathBuf::from("/"), branch, PathBuf::new()))
         );
     }
 
@@ -160,13 +157,11 @@ mod tests {
         let mut branch_inner = Vec::new();
         branch_inner.push(Box::from(Treemap::new(
             PathBuf::from("the old mill.png"),
-            0,
             Vec::new(),
             temp_dir.clone(),
         )));
         branch_inner.push(Box::from(Treemap::new(
             PathBuf::from("mountain retreat.png"),
-            0,
             Vec::new(),
             temp_dir.clone(),
         )));
@@ -208,22 +203,18 @@ mod tests {
         let mut branch_inner = Vec::new();
         branch_inner.push(Box::from(Treemap::new(
             PathBuf::from("the old mill.png"),
-            0,
             Vec::new(),
             temp_dir.clone(),
         )));
         branch_inner.push(Box::from(Treemap::new(
             PathBuf::from("mountain retreat.png"),
-            0,
             Vec::new(),
             temp_dir.clone(),
         )));
         branch_inner.push(Box::from(Treemap::new(
             PathBuf::from("WIP"),
-            0,
             vec![Box::from(Treemap::new(
                 PathBuf::from("Wilderness Day.png"),
-                0,
                 Vec::new(),
                 temp_dir.clone().join("WIP"),
             ))],

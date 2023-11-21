@@ -9,7 +9,6 @@ use super::node::Node;
 pub struct Treemap {
     pub full_path: PathBuf,
     pub node: PathBuf,
-    pub depth: usize,
     pub branches: Vec<Box<Treemap>>,
     last_update: Option<Box<SystemTime>>,
     conf_node: Vec<Box<Node>>,
@@ -24,9 +23,7 @@ impl PartialEq for Treemap {
         if self.node != other.node {
             return false;
         }
-        if self.depth != other.depth {
-            return false;
-        }
+
         if self.last_update != other.last_update {
             return false;
         }
@@ -54,7 +51,7 @@ impl PartialEq for Treemap {
 
 impl Display for Treemap {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        writeln!(f, "-{} depth: {}", self.node.display(), self.depth)?;
+        writeln!(f, "-{} ", self.node.display())?;
         for branch in &self.branches {
             write!(f, "| ")?;
             branch.fmt(f)?;
@@ -64,12 +61,7 @@ impl Display for Treemap {
 }
 
 impl Treemap {
-    pub fn new(
-        node: PathBuf,
-        depth: usize,
-        branches: Vec<Box<Treemap>>,
-        prev_path: PathBuf,
-    ) -> Self {
+    pub fn new(node: PathBuf, branches: Vec<Box<Treemap>>, prev_path: PathBuf) -> Self {
         let full_path;
         if cfg!(windows) && node == PathBuf::from("WinRoot") {
             full_path = prev_path;
@@ -78,7 +70,6 @@ impl Treemap {
         }
         let mut val = Self {
             node: node,
-            depth,
             branches,
             last_update: None,
             full_path: full_path,
@@ -134,13 +125,17 @@ impl Treemap {
                 return true;
             }
         }
+        println!("No Update for {}", self.node.display());
         return false;
     }
 
     pub fn poll_branches(&mut self) -> Vec<PathBuf> {
         trace!("Polling Branches of {}", self.node.display());
         let mut update: Vec<PathBuf> = Vec::new();
-        if self.node == PathBuf::from("WinRoot") || self.poll_point() {
+        if self.node == PathBuf::from("WinRoot")
+            || self.node == PathBuf::from("/")
+            || self.poll_point()
+        {
             if !self.branches.is_empty() {
                 self.branches.iter_mut().for_each(|b| {
                     let paths = b.poll_branches();

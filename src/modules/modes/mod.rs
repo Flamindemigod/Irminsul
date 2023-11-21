@@ -14,5 +14,5 @@ pub trait Poll {
 }
 
 trait PollMap<T> {
-    fn poll_map(&mut self, branch_depth_ratio: f32) -> Vec<&mut Self>;
+    fn poll_map(&mut self, branch_depth_ratio: f32, depth: usize) -> Vec<&mut Self>;
 }

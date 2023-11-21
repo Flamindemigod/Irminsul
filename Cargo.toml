@@ -24,7 +24,8 @@ serial_test = "2.0.0"
 
 
 [features]
-default = ["notify", "timestamps", "poll"]
+default = ["timestamps", "poll"]
 poll = []
 notify = []
 timestamps = ["stderrlog/timestamps"]
+
